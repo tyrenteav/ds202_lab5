@@ -1,0 +1,199 @@
+---
+title: "Team"
+author: "Tyren Teav"
+date: "4/16/2021"
+output: html_document
+---
+
+Problem 1:
+
+Saturdays have the most accidents than any other day of the week, followed by Sunday which makes sense. Weekends the most things are going on, people are going out the most, likely the most activity. 
+```{r}
+library(ggplot2)
+library(tidyverse)
+
+acc <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/accident.csv", stringsAsFactors = FALSE)
+
+per <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/person.csv", stringsAsFactors = FALSE)
+
+acc %>%
+  group_by(acc$DAY_WEEK) %>%
+  summarize(
+    count = length(DAY_WEEK)
+  ) %>%
+  arrange(count)
+
+
+
+
+```
+
+
+Problem 2
+
+```{r}
+
+injury <- subset(per, INJ_SEV >= 1)
+head(injury)
+
+
+```
+
+Problem 3
+I used INJ_SEV like problem 2 to represent the fatalities 
+```{r}
+library(dplyr)
+
+
+per2 <- per %>%
+  group_by(STATE, MAKE) %>%
+  summarize(
+    deaths = sum(INJ_SEV)
+  ) %>%
+  arrange(STATE)
+
+per3 <- na.omit(per2)
+
+per4 <- per3 %>%
+  group_by(STATE) %>%
+  top_n(1,deaths)
+
+per4
+```
+
+Problem 4
+
+The most dangerous vehicle is described as the vehicle make that has caused the most INJ_SEV from problem 2 and 3. The map shows that there are two main makes that have cause the most deaths, being ,make 20 and 12.
+```{r}
+
+library(readxl)
+library(tidyverse)
+states <- map_data('state')
+US <- readxl::read_xlsx("/Users/Tyren/Desktop/DS_202/United_States.xlsx")
+
+ggplot(states, aes(x = long, y = lat)) + geom_polygon(aes(group=group))
+
+US$`State Name` <- tolower(US$`State Name`)
+text <- full_join(US, states, by = c("State Name" = "region"))
+
+text1 <- select(text, "State Name", "State Code", "long", "lat")
+
+per4$STATE = as.character(per4$STATE)
+
+locations <- text1 %>%
+  group_by(`State Name`, `State Code`) %>%
+  summarize(
+    long = mean(long),
+    lat = mean(lat)
+  )
+
+text2 <- full_join(locations, per4, by = c('State Code' = "STATE"))
+
+ggplot(states, aes(x=long, y = lat)) + geom_polygon(aes(group=group)) + geom_text(aes(label= MAKE), data = text2, color = "Green")
+
+
+```
+
+
+```{r}
+acc <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/accident.csv", stringsAsFactors = FALSE)
+pers <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/person.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+glc <- readxl::read_xlsx("/Users/Tyren/Desktop/DS_202/United_States.xlsx")
+```
+Question 5
+```{r}
+accidents <-inner_join(pers, acc, by = c("STATE", "ST_CASE", "HOUR"))
+
+```
+
+Question 6
+```{r}
+tally1 <- accidents %>%
+  group_by(DAY_WEEK) %>%
+  summarize(DayCount = n())
+
+ggplot(tally1, aes(x = DAY_WEEK, weight = DayCount, fill = DAY_WEEK)) + geom_bar()
+
+
+
+tally2 <- accidents %>%
+  group_by(HOUR) %>%
+  summarize(HourCount = n())
+
+ggplot(tally2, aes(x = HOUR, weight = HourCount, fill = HOUR)) + geom_bar()
+
+
+
+tally3 <- accidents %>%
+  group_by(SEX) %>%
+  summarize(SexCount = n())
+
+ggplot(tally3, aes(x = SEX, weight = SexCount, fill = SEX)) + geom_bar()
+```
+
+From the data given above, we can see that the most number of accidents usually occur in men around 7 PM on fridays, saturdays, and sundays
+From the data above, we can tell that most number of accidents will happen tgo men and will usually occur around 7Pm on Fridays, Saturdays and Sundays. This means that there is a higher likelihood for men to get into an accident on these weekend days. 
+
+
+
+Question 7
+```{r}
+library(maps)
+```
+
+
+```{r}
+
+
+death <- acc %>%
+  group_by(STATE, COUNTY) %>%
+  summarise(count = sum(FATALS))
+
+county <- map_data("county")
+
+glc2 <- glc %>%
+  rename(STATE = `State Code`, COUNTY = `County Code`) %>%
+  mutate(STATE = as.numeric(STATE), COUNTY = as.numeric(COUNTY))
+
+DeathMap <- death %>%
+  inner_join(glc2, by = c("STATE", "COUNTY")) %>%
+  select(count, `State Name`, `County Name`) %>%
+  distinct() %>%
+  rename(region = `State Name`, subregion = `County Name`) %>%
+  mutate(region = tolower(region), subregion = tolower(subregion)) %>%
+  right_join(county, by = c("region", "subregion"))
+
+DeathMap %>%
+  ggplot(aes(x = long, y = lat, fill = count)) + geom_polygon(aes(group = group))
+```
+
+
+Question 8
+```{r}
+sumDeaths <- acc %>%
+  filter(MONTH >= 6 | MONTH <= 8) %>%
+  select(STATE, FATALS) %>%
+  group_by(STATE) %>%
+  summarise(sumCount = sum(FATALS))
+
+winDeaths <- acc %>%
+  filter(MONTH >= 11 | MONTH <= 2) %>%
+  select(STATE, FATALS) %>%
+  group_by(STATE) %>%
+  summarise(winCount = sum(FATALS))
+
+sumDeaths
+winDeaths
+
+totSumDeaths <- sum(sumDeaths$sumCount)
+totSumDeaths
+
+totWinDeaths <- sum(winDeaths$winCount)
+totWinDeaths
+```
+
+
+While this result was different than what I expected, we can see that there are more deaths in the summer season than the winter season therefore we can assume that using this factor, summer is a more dangerous season to drive in compared to winter. 
